@@ -1,0 +1,10 @@
+numpy
+scipy
+tqdm
+tensorflow
+scikit-image
+matplotlib
+opencv-python
+jupyter
+tensorflow-macos
+tensorflow-metal
