@@ -1,3 +1,12 @@
-**Create a Virtual Environment**: `python3.8 -m venv venv`
-**Activate the Environment**: `source venv/bin/activate`
-**Install Dependencies**: `pip install -r requirements.txt`
+### Create a Virtual Environment
+```sh
+python3.8 -m venv venv
+```
+### Activate the Environment
+```sh
+source venv/bin/activate
+```
+### Install Dependencies
+```sh
+pip install -r requirements.txt
+```
