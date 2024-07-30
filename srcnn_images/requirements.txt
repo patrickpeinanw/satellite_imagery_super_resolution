@@ -8,3 +8,6 @@ opencv-python
 jupyter
 tensorflow-macos
 tensorflow-metal
+rasterio
+scikit-image
+pandas
