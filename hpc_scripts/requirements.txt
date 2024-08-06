@@ -1,0 +1,11 @@
+numpy
+scipy
+tqdm
+tensorflow
+scikit-image
+matplotlib
+opencv-python
+jupyter
+rasterio
+scikit-image
+pandas
