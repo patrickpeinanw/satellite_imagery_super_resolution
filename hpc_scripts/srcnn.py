@@ -26,7 +26,7 @@ def load_hr_images(aoi):
     - List of loaded images.
     """
     images = []
-    hr_image_path = os.path.join('dataset/hr_dataset', aoi, f"{aoi}_ps.TIFF")
+    hr_image_path = os.path.join('dataset/hr_dataset', aoi, f"{aoi}_ps.tiff")
     if os.path.isfile(hr_image_path):
         try:
             with rasterio.open(hr_image_path) as src:
@@ -36,7 +36,7 @@ def load_hr_images(aoi):
         except Exception as e:
             print(f"Warning: Failed to read image {hr_image_path} with error {e}")
     else:
-        print(f"Warning: Low-resolution image path {hr_image_path} does not exist")
+        print(f"Warning: High-resolution image path {hr_image_path} does not exist")
     return images
 
 def preprocess_image(image, target_size):
@@ -70,6 +70,8 @@ def process_aois(aoi_names, target_size_hr, target_size_lr):
     """
     data = {}
     for aoi_base_name in aoi_names:
+        print('processing:', aoi_base_name)
+
         # print(f"Processing AOI: {aoi_base_name}")
         # lr_images = load_lr_images(aoi_base_name, num_revisits)
         hr_images = load_hr_images(aoi_base_name)
@@ -94,28 +96,32 @@ def process_aois(aoi_names, target_size_hr, target_size_lr):
 
 ############################ Functions to prepare training data ###################################
 HR_DATASET_PATH = 'dataset/hr_dataset'
-LR_DATASET_PATH = 'dataset/lr_dataset'
+# LR_DATASET_PATH = 'dataset/lr_dataset'
 
 def prepare_training_data():
-
+    
+    print('start preparing training data')
+    print('clean up raw data')
     # clean the dataset
     metadata = pd.read_csv("dataset/metadata.csv")
     metadata.rename(columns={metadata.columns[0]: 'aoi_name'}, inplace=True)
     metadata.drop_duplicates(subset=['aoi_name'], keep='first', inplace=True)
-
+    
+    print('selecting AOIs')
     # Select AOIs with landcover and cloud cover less than 0.05
     df_select = metadata[(metadata['aoi_name'].str.contains('Landcover')) & (metadata['cloud_cover'] < 0.05)]
 
     # Select 1000 AOIs for model training
     landcover_folders = []
     aoi_names_set = set(df_select['aoi_name'])
-    for folder_name in os.listdir(LR_DATASET_PATH):
+    for folder_name in os.listdir(HR_DATASET_PATH):
         if folder_name in aoi_names_set:
             landcover_folders.append(folder_name)
         # Stop when 1000 folders have been added
         if len(landcover_folders) >= 1000:
             break
-
+    
+    print('loading images')
     # upscale the low-resolution images
     target_size_hr = (500, 500)
     target_size_lr = (100, 100)
@@ -124,11 +130,14 @@ def prepare_training_data():
     # Collect all high-res and low-res images from sample_images
     all_high_images = []
     all_low_images = []
+    
+    print('finish loading images')
 
     for aoi_name in sample_images:
         all_low_images.extend(sample_images[aoi_name][0])  # Low-resolution images
         all_high_images.extend(sample_images[aoi_name][1])  # High-resolution images
-
+    
+    print('upscale low res images')
     # upscale the 100 x 100 low resolution image to 500 x 500 using bicubic interpolation
     for i in range(len(all_low_images)):
         upscaled_img = cv2.resize(all_low_images[i], (500, 500), interpolation=cv2.INTER_CUBIC)
@@ -137,7 +146,8 @@ def prepare_training_data():
     # Convert lists to numpy arrays
     all_high_images = np.array(all_high_images)
     all_low_images = np.array(all_low_images)
-
+    
+    print('spliting data into train, validation, and test')
     # Split the data into train, validation, and test sets
     train_high_image = all_high_images[:800]
     train_low_image = all_low_images[:800]
@@ -147,7 +157,8 @@ def prepare_training_data():
 
     test_high_image = all_high_images[900:]
     test_low_image = all_low_images[900:]
-
+    
+    print('finish data preparation')
     return (
         train_high_image, train_low_image, validation_high_image, validation_low_image, test_high_image, test_low_image
     )
@@ -171,10 +182,12 @@ def srcnn_model():
 if __name__ == '__main__':
     # Prepare the training data
     train_high_image, train_low_image, validation_high_image, validation_low_image, test_high_image, test_low_image = prepare_training_data()
-
+    
+    print('define model')
     # Create the SRCNN model
     model = srcnn_model()
-
+    
+    print('training starts')
     # Train the model
     model.fit(
         train_low_image, train_high_image,
@@ -184,8 +197,7 @@ if __name__ == '__main__':
         callbacks=[EarlyStopping(monitor='val_loss', patience=2)]
     )
 
-    # Evaluate the model
-    model.evaluate(test_low_image, test_high_image)
+    print('finished training and saving the weights')
 
     # Save the model
     model.save('srcnn_weights.h5')
